@@ -1,0 +1,63 @@
+name: エコキュート新商品チェック（週次）
+
+on:
+  schedule:
+    # 毎週月曜 09:00（日本時間）＝ UTC 00:00
+    - cron: '0 0 * * 1'
+  workflow_dispatch: {}   # 手動でも実行できるようにする
+
+permissions:
+  contents: write          # 検知済みリスト(seen-models.json)を更新・保存するため
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 新形名チェックを実行（チャットワーク通知）
+        env:
+          CHATWORK_TOKEN: ${{ secrets.CHATWORK_TOKEN }}
+          CHATWORK_ROOM: ${{ secrets.CHATWORK_ROOM }}
+        run: node scripts/check-new-models.mjs
+
+      # ▼▼ メール通知（任意）▼▼
+      # 下記のSecretsを登録すると自動でメールも送られます（未登録ならスキップ）:
+      #   MAIL_TO        … 通知先メールアドレス（カンマ区切りで複数可）
+      #   MAIL_SMTP_HOST … 送信サーバー（例 Gmail: smtp.gmail.com）
+      #   MAIL_SMTP_PORT … ポート（例 465）
+      #   MAIL_USERNAME  … 送信元アカウント（例 Gmailアドレス）
+      #   MAIL_PASSWORD  … 送信用パスワード（Gmailは「アプリパスワード」）
+      #   MAIL_FROM      … 差出人表示（例 "エコキュート通知 <xxx@gmail.com>"）
+      - name: 件名を読み込み
+        id: subj
+        if: ${{ hashFiles('notify-message.txt') != '' }}
+        run: echo "subject=$(cat notify-subject.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: メール通知（メール用Secrets登録時のみ）
+        if: ${{ env.MAIL_TO != '' && hashFiles('notify-message.txt') != '' }}
+        env:
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.MAIL_SMTP_HOST }}
+          server_port: ${{ secrets.MAIL_SMTP_PORT }}
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: ${{ steps.subj.outputs.subject }}
+          to: ${{ secrets.MAIL_TO }}
+          from: ${{ secrets.MAIL_FROM }}
+          body: file://notify-message.txt
+      # ▲▲ メール通知ここまで ▲▲
+
+      - name: 検知済みリストの更新を保存
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add seen-models.json
+          git diff --staged --quiet || git commit -m "chore: 新形名を検知済みリストに追加"
+          git push
