@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>エコキュート部品検索</title>
+<style>
+  :root{
+    --bg:#f2f5f9; --card:#ffffff; --line:#e2e8f0; --text:#1f2937; --sub:#64748b;
+    --brand:#0d6efd; --brand-soft:#e7f0ff;
+    --accent1:#0ea5e9; --accent2:#16a34a; --accent3:#f97316;
+    --ok:#16a34a; --ok-bg:#ecfdf3; --warn:#b45309; --warn-bg:#fff7ed; --bad:#dc2626; --bad-bg:#fef2f2;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;}
+  header{position:sticky;top:0;z-index:10;background:linear-gradient(135deg,#0d6efd,#0ea5e9);color:#fff;padding:14px 16px 12px;box-shadow:0 2px 10px rgba(0,0,0,.12);}
+  header h1{margin:0;font-size:18px;font-weight:700;letter-spacing:.02em;}
+  header p{margin:3px 0 0;font-size:11.5px;opacity:.9;}
+  .wrap{max-width:680px;margin:0 auto;padding:12px 14px 40px;}
+  .searchbox{position:sticky;top:58px;z-index:9;background:var(--bg);padding:10px 0 8px;}
+  .searchbox input{width:100%;font-size:16px;padding:13px 14px;border:2px solid var(--line);border-radius:14px;background:#fff;outline:none;transition:border-color .15s;}
+  .searchbox input:focus{border-color:var(--brand);}
+  .filters{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px;}
+  .chip{font-size:12.5px;padding:6px 13px;border-radius:999px;border:1.5px solid var(--line);background:#fff;color:var(--sub);cursor:pointer;user-select:none;}
+  .chip.active{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600;}
+  .count{font-size:12px;color:var(--sub);margin:12px 2px 6px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:13px 14px 8px;margin-bottom:13px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  .card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+  .tank{font-size:18px;font-weight:700;letter-spacing:.02em;word-break:break-all;}
+  .tank .tlabel{display:block;font-size:10.5px;font-weight:600;color:var(--sub);letter-spacing:.04em;margin-bottom:1px;}
+  .maker{flex:none;font-size:11px;font-weight:600;color:var(--brand);background:var(--brand-soft);padding:3px 9px;border-radius:999px;white-space:nowrap;}
+  .meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0 4px;font-size:11.5px;color:var(--sub);}
+  .tag{background:#f1f5f9;border-radius:6px;padding:2px 7px;}
+  .conf{font-size:10.5px;font-weight:700;border-radius:6px;padding:2px 7px;}
+  .conf.high{color:var(--ok);background:var(--ok-bg);}
+  .conf.medium{color:var(--warn);background:var(--warn-bg);}
+  .conf.low{color:var(--bad);background:var(--bad-bg);}
+  .part{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px dashed var(--line);}
+  .part .label{flex:none;width:96px;font-size:12px;font-weight:600;color:#fff;padding:4px 0;text-align:center;border-radius:8px;}
+  .l1{background:var(--accent1);} .l2{background:var(--accent2);} .l3{background:var(--accent3);}
+  .pn{font-size:15.5px;font-weight:600;word-break:break-all;flex:1;}
+  .pn.empty{color:#cbd5e1;font-weight:400;}
+  .copy{flex:none;font-size:12px;color:var(--brand);background:none;border:1px solid var(--line);padding:5px 10px;border-radius:8px;cursor:pointer;}
+  .copy:active{background:var(--brand-soft);}
+  .note{font-size:11.5px;color:var(--sub);padding:8px 0 2px;border-top:1px dashed var(--line);}
+  .src{display:inline-block;font-size:11px;color:var(--brand);text-decoration:none;padding:4px 0 2px;}
+  .empty-state{text-align:center;color:var(--sub);padding:50px 20px;font-size:14px;}
+  .empty-state .big{font-size:40px;margin-bottom:8px;}
+  .banner{font-size:12px;border-radius:12px;padding:10px 12px;margin-bottom:8px;background:var(--warn-bg);border:1px solid #fed7aa;color:var(--warn);}
+  footer{text-align:center;font-size:11px;color:var(--sub);padding:24px 0 10px;line-height:1.7;}
+  mark{background:#fff3b0;color:inherit;padding:0 1px;border-radius:3px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>🔧 エコキュート 部品検索</h1>
+  <p>貯湯ユニット／システム形名から リモコン・脚部カバー・ヒートポンプ を検索</p>
+</header>
+
+<div class="wrap">
+  <div class="searchbox">
+    <input id="q" type="search" inputmode="search" autocomplete="off"
+           placeholder="品番を入力（例：SRT-S377U / TUA46ZFV / HE-J37LQS）">
+    <div class="filters" id="filters"></div>
+  </div>
+
+  <div class="banner">
+    ⚠️ 品番は<b>発注前に必ず公式資料でご確認ください</b>。各カードの確度（公式確認/要確認/未確認）と「出典」リンクで照合できます。
+  </div>
+
+  <div class="count" id="count"></div>
+  <div id="results"></div>
+
+  <footer>
+    社内用 ／ 収録 <span id="total"></span> 件 ／ 最終更新: <span id="updated"></span><br>
+    出典: 各メーカー公式サイト・公式価格表／カタログ（一部は信頼できる販売店ページで照合）
+  </footer>
+</div>
+
+<script>
+/* =========================================================================
+   ★★★ データ更新はここだけを編集します ★★★
+   1件 = 1システム。{ } を1かたまりとしてコピーして増やします。
+   maker:メーカー / system:システム形名 / region:設置地域 / tank:貯湯ユニット品番
+   remote:①リモコン / legcover:②脚部カバー / heatpump:③ヒートポンプ
+   conf:確度 "high"(公式確認)/"medium"(要確認)/"low"(未確認) / note:備考 / src:出典URL
+   不明な品番は "" にすると「未登録」と表示されます。
+   ========================================================================= */
+
+const LAST_UPDATED = "2026-06-16";
+
+const PARTS_DATA = [
+/* ===== 三菱電機（出典: 公式価格表 ecocute-price.pdf / 公式ラインアップ） ===== */
+{maker:"三菱電機",system:"SRT-P467UB",region:"一般地",tank:"SRT-PT467UB",remote:"RMCB-H7SE",legcover:"GT-M460W",heatpump:"SRT-MU517-P",conf:"high",note:"Pシリーズ プレミアム 460L フルオート",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-P377UB",region:"一般地",tank:"SRT-PT377UB",remote:"RMCB-H7SE",legcover:"GT-M460W",heatpump:"SRT-MU417-P",conf:"high",note:"Pシリーズ プレミアム 370L",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-S557U",region:"一般地",tank:"SRT-ST557U",remote:"RMCB-F7SE",legcover:"GT-M550W",heatpump:"SRT-MU617-S",conf:"high",note:"Sシリーズ 550L ハイパワー給湯",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-S467U",region:"一般地",tank:"SRT-ST467U",remote:"RMCB-F7SE",legcover:"GT-M460W",heatpump:"SRT-MU517-S",conf:"high",note:"Sシリーズ 460L ハイパワー給湯",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-S377U",region:"一般地",tank:"SRT-ST377U",remote:"RMCB-F7SE",legcover:"GT-M460W",heatpump:"SRT-MU417-S",conf:"high",note:"Sシリーズ 370L ハイパワー給湯",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-S557",region:"一般地",tank:"SRT-ST557",remote:"RMCB-F7SE",legcover:"GT-M550W",heatpump:"SRT-MU617-S",conf:"high",note:"Sシリーズ 550L 高圧力型",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-S467",region:"一般地",tank:"SRT-ST467",remote:"RMCB-F7SE",legcover:"GT-M460W",heatpump:"SRT-MU517-S",conf:"high",note:"Sシリーズ 460L 高圧力型",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-S377",region:"一般地",tank:"SRT-ST377",remote:"RMCB-F7SE",legcover:"GT-M460W",heatpump:"SRT-MU417-S",conf:"high",note:"Sシリーズ 370L 高圧力型",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-S437UZ",region:"一般地",tank:"SRT-ST437UZ",remote:"RMCB-F7SE",legcover:"GT-L370ZB",heatpump:"SRT-MU517-SZ",conf:"high",note:"Sシリーズ 薄型 430L。薄型専用脚部カバー",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-S377UZ",region:"一般地",tank:"SRT-ST377UZ",remote:"RMCB-F7SE",legcover:"GT-L370ZB",heatpump:"SRT-MU417-SZ",conf:"high",note:"Sシリーズ 薄型 370L",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-SK557UD",region:"寒冷地",tank:"SRT-STK557UD",remote:"RMCB-F7SE",legcover:"GT-M550W",heatpump:"SRT-MUK617-S",conf:"high",note:"Sシリーズ 寒冷地 550L",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-SK467UD",region:"寒冷地",tank:"SRT-STK467UD",remote:"RMCB-F7SE",legcover:"GT-M460W",heatpump:"SRT-MUK517-S",conf:"high",note:"Sシリーズ 寒冷地 460L",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-SK377UD",region:"寒冷地",tank:"SRT-STK377UD",remote:"RMCB-F7SE",legcover:"GT-M460W",heatpump:"SRT-MUK417-S",conf:"high",note:"Sシリーズ 寒冷地 370L",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-SK467D",region:"寒冷地",tank:"SRT-STK467D",remote:"RMCB-F7SE",legcover:"GT-M460W",heatpump:"SRT-MUK517-S",conf:"high",note:"Sシリーズ 寒冷地 460L 高圧力型",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-SK377D",region:"寒冷地",tank:"SRT-STK377D",remote:"RMCB-F7SE",legcover:"GT-M460W",heatpump:"SRT-MUK417-S",conf:"high",note:"Sシリーズ 寒冷地 370L 高圧力型",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-V467",region:"一般地",tank:"SRT-VT467",remote:"RMCB-D7SE",legcover:"GT-M460W",heatpump:"SRT-MU517-V",conf:"high",note:"Vシリーズ 460L フルオート",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-V377",region:"一般地",tank:"SRT-VT377",remote:"RMCB-D7SE",legcover:"GT-M460W",heatpump:"SRT-MU417-VW",conf:"high",note:"Vシリーズ 370L",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-VK467D",region:"寒冷地",tank:"SRT-VTK467D",remote:"RMCB-D7SE",legcover:"GT-M460W",heatpump:"SRT-MUK517-V",conf:"high",note:"Vシリーズ 寒冷地 460L",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-VK377D",region:"寒冷地",tank:"SRT-VTK377D",remote:"RMCB-D7SE",legcover:"GT-M460W",heatpump:"SRT-MUK417-V",conf:"high",note:"Vシリーズ 寒冷地 370L",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-C467",region:"一般地",tank:"SRT-CT467",remote:"RMCB-D7SE",legcover:"GT-M460W",heatpump:"SRT-MU517-V",conf:"high",note:"Cシリーズ エコオート 460L",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-C377",region:"一般地",tank:"SRT-CT377",remote:"RMCB-D7SE",legcover:"GT-M460W",heatpump:"SRT-MU417-V",conf:"high",note:"Cシリーズ エコオート 370L",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-N467",region:"一般地",tank:"SRT-NT467",remote:"RMCB-N7",legcover:"GT-M460W",heatpump:"SRT-MU517-V",conf:"high",note:"Nシリーズ 給湯専用 460L",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-N377",region:"一般地",tank:"SRT-NT377",remote:"RMCB-N7",legcover:"GT-M460W",heatpump:"SRT-MU417-V",conf:"high",note:"Nシリーズ 給湯専用 370L",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-NK467D",region:"寒冷地",tank:"SRT-NTK467D",remote:"RMCB-N7",legcover:"GT-M460W",heatpump:"SRT-MUK517-V",conf:"high",note:"Nシリーズ 給湯専用 寒冷地 460L",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-NK377D",region:"寒冷地",tank:"SRT-NTK377D",remote:"RMCB-N7",legcover:"GT-M460W",heatpump:"SRT-MUK417-V",conf:"high",note:"Nシリーズ 給湯専用 寒冷地 370L",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-S186D",region:"一般地",tank:"SRT-ST186D",remote:"RMCB-D186SE",legcover:"GT-L180B",heatpump:"SRT-MU45806-S",conf:"medium",note:"コンパクト 180L フルオート。受注生産。HP形名要確認",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-SK186D",region:"寒冷地",tank:"SRT-STK186D",remote:"RMCB-D186SE",legcover:"GT-L180B",heatpump:"SRT-MUK60906-S",conf:"medium",note:"コンパクト 寒冷地 180L。受注生産。HP形名要確認",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-N186D",region:"一般地",tank:"SRT-NT186D",remote:"RMCB-N186",legcover:"GT-L180B",heatpump:"SRT-MU45456-AB4",conf:"medium",note:"ライト 給湯専用 180L。受注生産。HP形名要確認",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-NK186D",region:"寒冷地",tank:"SRT-NTK186D",remote:"RMCB-N186",legcover:"GT-L180B",heatpump:"SRT-MUK45456-AB4",conf:"medium",note:"ライト 寒冷地 給湯専用 180L。受注生産。HP形名要確認",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+{maker:"三菱電機",system:"SRT-W306D-2",region:"一般地",tank:"SRT-WT306D-2",remote:"RMCB-D6SE-T",legcover:"GT-L300B",heatpump:"SRT-SU456-A",conf:"medium",note:"ローボディ 300L フルオート。受注生産。要確認",src:"https://www.mitsubishielectric.co.jp/home/ecocute/product/pdf/ecocute-price.pdf"},
+
+/* ===== パナソニック（出典: 公式機種一覧 dotokisyu.pdf / 公式製品ページ） ===== */
+{maker:"パナソニック",system:"HE-JPU46LQS",region:"一般地",tank:"HE-JPU46LQ",remote:"HE-RQWLW / HE-RQVLZ",legcover:"AD-HEJP4NA-H",heatpump:"HE-PJPU60L",conf:"high",note:"JPシリーズ ウルトラ高圧フルオート460L 色:ウォームシルバー",src:"https://sumai.panasonic.jp/hp/lineup/product.php?id=ippan_uk_jpl_460"},
+{maker:"パナソニック",system:"HE-JPU37LQS",region:"一般地",tank:"HE-JPU37LQ",remote:"HE-RQWLW / HE-RQVLZ",legcover:"AD-HEJP4NA-H",heatpump:"HE-PJPU45L",conf:"high",note:"JPシリーズ ウルトラ高圧フルオート370L",src:"https://sumai.panasonic.jp/hp/lineup/product.php?id=ippan_uk_jpl_370"},
+{maker:"パナソニック",system:"HE-JU46LQS",region:"一般地",tank:"HE-JU46LQ",remote:"HE-RQWLW / HE-RQVLZ",legcover:"AD-HEJP4NA-H",heatpump:"HE-PJU60L",conf:"medium",note:"Jシリーズ ウルトラ高圧460L。HP品番は命名規則から導出",src:"https://sumai.panasonic.jp/hp/lineup/product.php?id=ippan_uk_jul_460"},
+{maker:"パナソニック",system:"HE-JU37LQS",region:"一般地",tank:"HE-JU37LQ",remote:"HE-RQWLW / HE-RQVLZ",legcover:"AD-HEJP4NA-H",heatpump:"HE-PJU45L",conf:"high",note:"Jシリーズ ウルトラ高圧370L",src:"https://sumai.panasonic.jp/hp/lineup/product.php?id=ippan_uk_jul_370"},
+{maker:"パナソニック",system:"HE-J46LQS",region:"一般地",tank:"HE-J46LQ",remote:"HE-RQWLW / HE-RQVLZ",legcover:"AD-HEJP4NA-C",heatpump:"HE-PJ60L",conf:"high",note:"Jシリーズ 高圧フルオート460L 色:アイボリー",src:"https://sumai.panasonic.jp/hp/lineup/product.php?id=ippan_fa_jl_460"},
+{maker:"パナソニック",system:"HE-J37LQS",region:"一般地",tank:"HE-J37LQ",remote:"HE-RQWLW / HE-RQVLZ",legcover:"AD-HEJP4NA-C",heatpump:"HE-PJ45L",conf:"high",note:"Jシリーズ 高圧フルオート370L",src:"https://sumai.panasonic.jp/hp/lineup/product.php?id=ippan_fa_jl_370"},
+{maker:"パナソニック",system:"HE-J46LQES",region:"耐塩害",tank:"HE-J46LQE",remote:"HE-RQWLW / HE-RQVLZ",legcover:"",heatpump:"HE-PJ60L",conf:"medium",note:"Jシリーズ 460L 耐塩害。脚部カバーは耐塩害指定品が分かれる可能性あり未確認",src:"https://sumai.panasonic.jp/hp/topimg/dotokisyu.pdf"},
+{maker:"パナソニック",system:"HE-J37LQES",region:"耐塩害",tank:"HE-J37LQE",remote:"HE-RQWLW / HE-RQVLZ",legcover:"",heatpump:"HE-PJ45L",conf:"medium",note:"Jシリーズ 370L 耐塩害。脚部カバー未確認",src:"https://sumai.panasonic.jp/hp/topimg/dotokisyu.pdf"},
+{maker:"パナソニック",system:"HE-J37LZS",region:"一般地",tank:"HE-J37LZ",remote:"",legcover:"AD-HEJP4NA-C",heatpump:"HE-PJ45L",conf:"medium",note:"Jシリーズ 給湯専用370L。専用リモコン品番未掲載",src:"https://sumai.panasonic.jp/hp/lineup/product.php?id=ippan_ks_jk_370"},
+{maker:"パナソニック",system:"HE-J46LZS",region:"一般地",tank:"HE-J46LZ",remote:"",legcover:"AD-HEJP4NA-C",heatpump:"HE-PJ60L",conf:"medium",note:"Jシリーズ 給湯専用460L。リモコン専用品番未確認",src:"https://sumai.panasonic.jp/hp/topimg/dotokisyu.pdf"},
+{maker:"パナソニック",system:"HE-NU46LQS",region:"一般地",tank:"HE-NU46LQ",remote:"HE-NQWLW / HE-RQVLZ",legcover:"AD-HEJP4NA-C",heatpump:"HE-PN60L",conf:"high",note:"Nシリーズ ウルトラ高圧フルオート460L",src:"https://sumai.panasonic.jp/hp/lineup/product.php?id=ippan_uk_nl_460"},
+{maker:"パナソニック",system:"HE-NU37LQS",region:"一般地",tank:"HE-NU37LQ",remote:"HE-NQWLW / HE-RQVLZ",legcover:"AD-HEJP4NA-C",heatpump:"HE-PN45L",conf:"medium",note:"Nシリーズ ウルトラ高圧370L。HPは導出",src:"https://sumai.panasonic.jp/hp/topimg/dotokisyu.pdf"},
+{maker:"パナソニック",system:"HE-N46LQS",region:"一般地",tank:"HE-N46LQ",remote:"HE-NQWLW / HE-RQVLZ",legcover:"AD-HEJP4NA-C",heatpump:"HE-PN60L",conf:"medium",note:"Nシリーズ 高圧フルオート460L。構成品番は導出",src:"https://sumai.panasonic.jp/hp/topimg/dotokisyu.pdf"},
+{maker:"パナソニック",system:"HE-N37LQS",region:"一般地",tank:"HE-N37LQ",remote:"HE-NQWLW / HE-RQVLZ",legcover:"AD-HEJP4NA-C",heatpump:"HE-PN45L",conf:"medium",note:"Nシリーズ 高圧フルオート370L。構成品番は導出",src:"https://sumai.panasonic.jp/hp/topimg/dotokisyu.pdf"},
+{maker:"パナソニック",system:"HE-SU46LQS",region:"一般地",tank:"HE-SU46LQ",remote:"HE-TQWLW / HE-RQVLZ",legcover:"AD-HEJP4NA-C",heatpump:"HE-PSU60L",conf:"high",note:"Sシリーズ ウルトラ高圧フルオート460L",src:"https://sumai.panasonic.jp/hp/lineup/product.php?id=ippan_uk_sl_460"},
+{maker:"パナソニック",system:"HE-SU37LQS",region:"一般地",tank:"HE-SU37LQ",remote:"HE-TQWLW / HE-RQVLZ",legcover:"AD-HEJP4NA-C",heatpump:"HE-PSU45L",conf:"medium",note:"Sシリーズ ウルトラ高圧370L。HPは導出",src:"https://sumai.panasonic.jp/hp/topimg/dotokisyu.pdf"},
+{maker:"パナソニック",system:"HE-S46LQS",region:"一般地",tank:"HE-S46LQ",remote:"HE-TQWLW / HE-RQVLZ",legcover:"AD-HEJP4NA-C",heatpump:"HE-PS60L",conf:"medium",note:"Sシリーズ 高圧フルオート460L。構成品番は導出",src:"https://sumai.panasonic.jp/hp/topimg/dotokisyu.pdf"},
+{maker:"パナソニック",system:"HE-NS46KQS",region:"一般地",tank:"HE-NS46KQ",remote:"HE-TQWKW / HE-RQVKZ",legcover:"AD-HEJP4NA-C",heatpump:"HE-PNS60K",conf:"high",note:"NSシリーズ 高圧フルオート460L",src:"https://sumai.panasonic.jp/hp/lineup/product.php?id=ippan_fa_nsk_460"},
+{maker:"パナソニック",system:"HE-NS37KQS",region:"一般地",tank:"HE-NS37KQ",remote:"HE-TQWKW / HE-RQVKZ",legcover:"AD-HEJP4NA-C",heatpump:"HE-PNS45K",conf:"medium",note:"NSシリーズ 高圧フルオート370L。HPは導出",src:"https://sumai.panasonic.jp/hp/lineup/product.php?id=ippan_fa_nsk_460"},
+{maker:"パナソニック",system:"HE-WU46LQS",region:"一般地",tank:"HE-WU46LQ",remote:"HE-WQWLW / HE-RQVLZ",legcover:"AD-HE37WFA-C",heatpump:"HE-PW60L",conf:"high",note:"Wシリーズ 薄型パワフル高圧460L。薄型用脚部カバー",src:"https://sumai.panasonic.jp/hp/lineup/product.php?id=ippan_pk_wl_460"},
+{maker:"パナソニック",system:"HE-WU37LQS",region:"一般地",tank:"HE-WU37LQ",remote:"HE-WQWLW / HE-RQVLZ",legcover:"AD-HE37WFA-C",heatpump:"HE-PW45L",conf:"medium",note:"Wシリーズ 薄型370L。タンク/HPは導出",src:"https://sumai.panasonic.jp/hp/topimg/dotokisyu.pdf"},
+{maker:"パナソニック",system:"HE-W46LQS",region:"一般地",tank:"HE-W46LQ",remote:"HE-WQWLW / HE-RQVLZ",legcover:"AD-HE37WFA-C",heatpump:"HE-PW60L",conf:"medium",note:"Wシリーズ 薄型460L。構成品番は導出",src:"https://sumai.panasonic.jp/hp/lineup/product.php?id=ippan_fa_wl_460"},
+{maker:"パナソニック",system:"HE-W37LQS",region:"一般地",tank:"HE-W37LQ",remote:"HE-WQWLW / HE-RQVLZ",legcover:"AD-HE37WFA-C",heatpump:"HE-PW45L",conf:"medium",note:"Wシリーズ 薄型370L。構成品番は導出",src:"https://sumai.panasonic.jp/hp/lineup/product.php?id=ippan_fa_wl_370"},
+{maker:"パナソニック",system:"HE-H46LQS",region:"一般地",tank:"HE-H46LQ",remote:"HE-WQWLW / HE-RQVLZ",legcover:"AD-HE37WFA-C",heatpump:"HE-PH60L",conf:"low",note:"Hシリーズ 薄型460L。リモコン/脚部/HP要確認",src:"https://sumai.panasonic.jp/hp/topimg/dotokisyu.pdf"},
+{maker:"パナソニック",system:"HE-C30LQS",region:"一般地",tank:"HE-C30LQ",remote:"HE-CQWLW / HE-RQVLZ",legcover:"",heatpump:"HE-PC45L",conf:"high",note:"Cシリーズ 低背高圧フルオート300L。低背専用脚部カバー品番未確認",src:"https://sumai.panasonic.jp/hp/lineup/product.php?id=ippan_fa_cl_300"},
+{maker:"パナソニック",system:"HE-C30LQES",region:"耐塩害",tank:"HE-C30LQE",remote:"HE-CQWLW / HE-RQVLZ",legcover:"",heatpump:"HE-PC45L",conf:"medium",note:"Cシリーズ 低背300L 耐塩害。脚部カバー未確認",src:"https://sumai.panasonic.jp/hp/topimg/dotokisyu.pdf"},
+{maker:"パナソニック",system:"HE-FPU46LQS",region:"寒冷地",tank:"HE-FPU46LQ",remote:"HE-RQWLW / HE-RQVLZ",legcover:"AD-HEJP4NA-H",heatpump:"HE-PFPU60L",conf:"high",note:"FPシリーズ 寒冷地パワフル高圧460L",src:"https://sumai.panasonic.jp/hp/lineup/product.php?id=kanrei_pk_fpk_460"},
+{maker:"パナソニック",system:"HE-FPU37LQS",region:"寒冷地",tank:"HE-FPU37LQ",remote:"HE-RQWLW / HE-RQVLZ",legcover:"AD-HEJP4NA-H",heatpump:"HE-PFPU45L",conf:"medium",note:"FPシリーズ 寒冷地370L。HPは導出",src:"https://sumai.panasonic.jp/hp/lineup/product.php?id=kanrei_pk_fpk_460"},
+{maker:"パナソニック",system:"HE-FU46LQS",region:"寒冷地",tank:"HE-FU46LQ",remote:"HE-RQWLW / HE-RQVLZ",legcover:"AD-HEJP4NA-H",heatpump:"HE-PFU60L",conf:"medium",note:"Fシリーズ 寒冷地高圧460L。構成品番は導出",src:"https://sumai.panasonic.jp/hp/topimg/dotokisyu.pdf"},
+{maker:"パナソニック",system:"HE-FU37LQS",region:"寒冷地",tank:"HE-FU37LQ",remote:"HE-RQWLW / HE-RQVLZ",legcover:"AD-HEJP4NA-H",heatpump:"HE-PFU45L",conf:"medium",note:"Fシリーズ 寒冷地高圧370L。構成品番は導出",src:"https://sumai.panasonic.jp/hp/topimg/dotokisyu.pdf"},
+{maker:"パナソニック",system:"HE-LS46LQS",region:"寒冷地",tank:"HE-LS46LQ",remote:"HE-TQWLW / HE-RQVLZ",legcover:"AD-HEJP4NA-H",heatpump:"HE-PLS60L",conf:"low",note:"LSシリーズ 寒冷地高圧460L。構成各品番は導出で要確認",src:"https://sumai.panasonic.jp/hp/topimg/dotokisyu.pdf"},
+{maker:"パナソニック",system:"HE-DF46LQS",region:"一般地",tank:"HE-DF46LQ",remote:"",legcover:"",heatpump:"HE-PDF60L",conf:"low",note:"多機能(床暖対応)460L。形名/構成とも要公式カタログ照合",src:"https://sumai.panasonic.jp/hp/lineup/product.php?id=ippan_fa_df_460"},
+
+/* ===== ダイキン（出典: 公式ラインアップ ac.daikin.co.jp。現行Z世代） ===== */
+{maker:"ダイキン",system:"EQX46ZFV",region:"一般地",tank:"TUX46ZFV",remote:"BRC083J1",legcover:"KKC022E4",heatpump:"RQWX60ZV",conf:"high",note:"フルオート Xシリーズ 角型460L。リモコン色違いBRC083J1K/WK。脚部カバー別売",src:"https://www.ac.daikin.co.jp/sumai/alldenka/ecocute/lineup/fullauto/01"},
+{maker:"ダイキン",system:"EQX37ZFV",region:"一般地",tank:"TUX37ZFV",remote:"BRC083J1",legcover:"KKC022E4",heatpump:"RQWX45ZV",conf:"high",note:"フルオート Xシリーズ 角型370L",src:"https://www.ac.daikin.co.jp/sumai/alldenka/ecocute/lineup/fullauto/01"},
+{maker:"ダイキン",system:"EQA46ZFV",region:"一般地",tank:"TUA46ZFV",remote:"BRC083J1",legcover:"KKC022E4",heatpump:"RQW60ZV",conf:"high",note:"フルオート Aシリーズ 角型460L",src:"https://www.ac.daikin.co.jp/sumai/alldenka/ecocute/lineup/fullauto/02"},
+{maker:"ダイキン",system:"EQA37ZFV",region:"一般地",tank:"TUA37ZFV",remote:"BRC083J1",legcover:"KKC022E4",heatpump:"RQW45ZV",conf:"high",note:"フルオート Aシリーズ 角型370L",src:"https://www.ac.daikin.co.jp/sumai/alldenka/ecocute/lineup/fullauto/02"},
+{maker:"ダイキン",system:"EQN46ZFV",region:"一般地",tank:"TUN46ZFV",remote:"BRC083J1",legcover:"KKC022E4",heatpump:"RQW60ZV",conf:"high",note:"フルオート Nシリーズ 角型460L",src:"https://www.ac.daikin.co.jp/sumai/alldenka/ecocute/lineup/fullauto/05"},
+{maker:"ダイキン",system:"EQN37ZFV",region:"一般地",tank:"TUN37ZFV",remote:"BRC083J1",legcover:"KKC022E4",heatpump:"RQW45ZV",conf:"high",note:"フルオート Nシリーズ 角型370L",src:"https://www.ac.daikin.co.jp/sumai/alldenka/ecocute/lineup/fullauto/05"},
+{maker:"ダイキン",system:"EQA46ZFTV",region:"一般地",tank:"TUA46ZFTV",remote:"BRC083J1",legcover:"KKC052B4",heatpump:"RQWX60ZV",conf:"high",note:"フルオート Aシリーズ 薄型460L。薄型用脚部カバー",src:"https://www.ac.daikin.co.jp/sumai/alldenka/ecocute/lineup/fullauto/03"},
+{maker:"ダイキン",system:"EQA37ZFTV",region:"一般地",tank:"TUA37ZFTV",remote:"BRC083J1",legcover:"KKC052B4",heatpump:"RQWX45ZV",conf:"high",note:"フルオート Aシリーズ 薄型370L",src:"https://www.ac.daikin.co.jp/sumai/alldenka/ecocute/lineup/fullauto/03"},
+{maker:"ダイキン",system:"EQA46ZFHV",region:"寒冷地",tank:"TUA46ZFHV",remote:"BRC083J1",legcover:"KKC022E4",heatpump:"RQW60ZHV",conf:"high",note:"フルオート Aシリーズ 寒冷地 角型460L -25℃対応",src:"https://www.ac.daikin.co.jp/sumai/alldenka/ecocute/lineup/fullauto/04"},
+{maker:"ダイキン",system:"EQA37ZFHV",region:"寒冷地",tank:"TUA37ZFHV",remote:"BRC083J1",legcover:"KKC022E4",heatpump:"RQW45ZHV",conf:"high",note:"フルオート Aシリーズ 寒冷地 角型370L -25℃対応",src:"https://www.ac.daikin.co.jp/sumai/alldenka/ecocute/lineup/fullauto/04"},
+{maker:"ダイキン",system:"EQA46ZSV",region:"一般地",tank:"TUA46ZSV",remote:"BRC083J2",legcover:"KKC022E4",heatpump:"RQW60ZV",conf:"high",note:"オート Aシリーズ 角型460L。リモコンはオート用BRC083J2",src:"https://www.ac.daikin.co.jp/sumai/alldenka/ecocute/lineup/auto/01"},
+{maker:"ダイキン",system:"EQA37ZSV",region:"一般地",tank:"TUA37ZSV",remote:"BRC083J2",legcover:"KKC022E4",heatpump:"RQW45ZV",conf:"high",note:"オート Aシリーズ 角型370L",src:"https://www.ac.daikin.co.jp/sumai/alldenka/ecocute/lineup/auto/01"},
+{maker:"ダイキン",system:"EQA46ZV",region:"一般地",tank:"TUA46ZV",remote:"BRC083J31",legcover:"KKC022E4",heatpump:"RQW60ZV",conf:"high",note:"給湯専用らく Aシリーズ 角型460L。リモコン/脚部カバー別売",src:"https://www.ac.daikin.co.jp/sumai/alldenka/ecocute/lineup/raku/01"},
+{maker:"ダイキン",system:"EQA37ZV",region:"一般地",tank:"TUA37ZV",remote:"BRC083J31",legcover:"KKC022E4",heatpump:"RQW45ZV",conf:"high",note:"給湯専用らく Aシリーズ 角型370L",src:"https://www.ac.daikin.co.jp/sumai/alldenka/ecocute/lineup/raku/01"},
+{maker:"ダイキン",system:"EQN46ZV",region:"一般地",tank:"TUN46ZV",remote:"BRC083J31",legcover:"KKC022E4",heatpump:"RQW60ZV",conf:"high",note:"給湯専用らく Nシリーズ 角型460L",src:"https://www.ac.daikin.co.jp/sumai/alldenka/ecocute/lineup/raku/03"},
+{maker:"ダイキン",system:"EQN37ZV",region:"一般地",tank:"TUN37ZV",remote:"BRC083J31",legcover:"KKC022E4",heatpump:"RQW45ZV",conf:"high",note:"給湯専用らく Nシリーズ 角型370L",src:"https://www.ac.daikin.co.jp/sumai/alldenka/ecocute/lineup/raku/03"},
+{maker:"ダイキン",system:"EQA46ZHV",region:"寒冷地",tank:"TUA46ZHV",remote:"BRC083J31",legcover:"KKC022E4",heatpump:"RQW60ZHV",conf:"high",note:"給湯専用らく Aシリーズ 寒冷地 角型460L -25℃対応",src:"https://www.ac.daikin.co.jp/sumai/alldenka/ecocute/lineup/raku/02"},
+
+/* ===== 日立（出典: 公式 kadenfan.hitachi.co.jp。現行X世代） ===== */
+{maker:"日立",system:"BHP-F37XD",region:"一般地",tank:"BHP-TAD37X",remote:"BER-X1FH / BER-X1FT / BER-X1FH-T",legcover:"BEAK-46X",heatpump:"BHP-HAD45X",conf:"high",note:"水道直圧フルオート 標準タンク370L。リモコンは3形名から選択",src:"https://kadenfan.hitachi.co.jp/kyutou/lineup/f-xd/"},
+{maker:"日立",system:"BHP-F46XD",region:"一般地",tank:"BHP-TAD46X",remote:"BER-X1FH / BER-X1FT / BER-X1FH-T",legcover:"BEAK-46X",heatpump:"BHP-HAD60X",conf:"high",note:"水道直圧フルオート 標準タンク460L",src:"https://kadenfan.hitachi.co.jp/kyutou/lineup/f-xd/"},
+{maker:"日立",system:"BHP-FV37XD",region:"一般地",tank:"BHP-TADV37X",remote:"BER-X1FH / BER-X1FT / BER-X1FH-T",legcover:"BEAK-46X",heatpump:"BHP-HAV45X",conf:"high",note:"水道直圧フルオート 高効率タンク370L",src:"https://kadenfan.hitachi.co.jp/kyutou/lineup/fv-xd/"},
+{maker:"日立",system:"BHP-FV46XD",region:"一般地",tank:"BHP-TADV46X",remote:"BER-X1FH / BER-X1FT / BER-X1FH-T",legcover:"BEAK-46X",heatpump:"BHP-HAV60X",conf:"high",note:"水道直圧フルオート 高効率タンク460L",src:"https://kadenfan.hitachi.co.jp/kyutou/lineup/fv-xd/"},
+{maker:"日立",system:"BHP-F37XDK",region:"寒冷地",tank:"BHP-TAD37XK",remote:"BER-X1FH / BER-X1FT / BER-X1FH-T",legcover:"BEAK-46X",heatpump:"BHP-HA45XK",conf:"high",note:"寒冷地仕様 -25℃ 370L",src:"https://kadenfan.hitachi.co.jp/kyutou/lineup/f-xdk/"},
+{maker:"日立",system:"BHP-F46XDK",region:"寒冷地",tank:"BHP-TAD46XK",remote:"BER-X1FH / BER-X1FT / BER-X1FH-T",legcover:"BEAK-46X",heatpump:"BHP-HA60XK",conf:"high",note:"寒冷地仕様 -25℃ 460L",src:"https://kadenfan.hitachi.co.jp/kyutou/lineup/f-xdk/"},
+{maker:"日立",system:"BHP-FW37XD",region:"一般地",tank:"BHP-TAW37X",remote:"BER-X1FH / BER-X1FT / BER-X1FH-T",legcover:"BEAK-46X",heatpump:"BHP-HAW45X",conf:"high",note:"ナイアガラタフネス 高硬度水・井戸水対応370L",src:"https://kadenfan.hitachi.co.jp/kyutou/lineup/fw-xd/"},
+{maker:"日立",system:"BHP-FW46XD",region:"一般地",tank:"BHP-TAW46X",remote:"BER-X1FH / BER-X1FT / BER-X1FH-T",legcover:"BEAK-46X",heatpump:"BHP-HAW45X",conf:"medium",note:"ナイアガラタフネス460L。HP形名が370Lと同一取得のため要確認",src:"https://kadenfan.hitachi.co.jp/kyutou/lineup/fw-xd/"},
+
+/* ===== コロナ（出典: 公式 corona.co.jp。現行AZ2世代） ===== */
+{maker:"コロナ",system:"CHP-E37AZ2",region:"一般地",tank:"CTU-E37AZ2",remote:"RBP-GADW2(S)",legcover:"CTU-FC28",heatpump:"CHP-AZ451",conf:"high",note:"高圧力パワフル給湯ハイグレード370L。リモコン/脚部カバー別売",src:"https://www.corona.co.jp/eco/highgrade/lineup.html"},
+{maker:"コロナ",system:"CHP-E46AZ2",region:"一般地",tank:"CTU-E46AZ2",remote:"RBP-GADW2(S)",legcover:"CTU-FC29",heatpump:"CHP-AZ601",conf:"high",note:"高圧力パワフル給湯ハイグレード460L",src:"https://www.corona.co.jp/eco/highgrade/lineup.html"},
+{maker:"コロナ",system:"CHP-37AZ2",region:"一般地",tank:"CTU-37AZ2",remote:"RBP-GADW2(S)",legcover:"CTU-FC28",heatpump:"CHP-AZ451",conf:"high",note:"標準圧ハイグレード370L",src:"https://www.corona.co.jp/eco/highgrade/lineup.html"},
+{maker:"コロナ",system:"CHP-46AZ2",region:"一般地",tank:"CTU-46AZ2",remote:"RBP-GADW2(S)",legcover:"CTU-FC29",heatpump:"CHP-AZ601",conf:"high",note:"標準圧ハイグレード460L",src:"https://www.corona.co.jp/eco/highgrade/lineup.html"},
+{maker:"コロナ",system:"CHP-37AZ2JE",region:"耐塩害",tank:"CTU-37AZ2JE",remote:"RBP-GADW2(S)",legcover:"CTU-FC28",heatpump:"CHP-AZ451E",conf:"high",note:"耐塩害仕様370L",src:"https://www.corona.co.jp/eco/highgrade/lineup.html"},
+{maker:"コロナ",system:"CHP-46AZ2JJ",region:"耐重塩害",tank:"CTU-46AZ2JJ",remote:"RBP-GADW2(S)",legcover:"CTU-FC29",heatpump:"CHP-AZ601J",conf:"high",note:"耐重塩害仕様460L",src:"https://www.corona.co.jp/eco/highgrade/lineup.html"},
+{maker:"コロナ",system:"CHP-ES46AZ2",region:"一般地",tank:"CTU-ES46AZ2",remote:"RBP-GADW2(S)",legcover:"CTU-FC28",heatpump:"CHP-AZ601",conf:"high",note:"省スペース・スリムタイプ460L",src:"https://www.corona.co.jp/eco/slim/lineup.html"},
+{maker:"コロナ",system:"CHP-E462AZ2",region:"一般地",tank:"CTU-E462AZ2",remote:"RBP-GADW2(S)",legcover:"CTU-FC30",heatpump:"CHP-DZ602",conf:"high",note:"薄型タイプ460L。薄型用脚部カバー",src:"https://www.corona.co.jp/eco/thin/lineup.html"},
+{maker:"コロナ",system:"CHP-ED302AZ2",region:"一般地",tank:"CTU-ED302AZ2",remote:"RBP-GADW2(S)",legcover:"CTU-CS4",heatpump:"CHP-DZ452-3",conf:"high",note:"薄型タイプ300L。薄型300L用脚部カバー",src:"https://www.corona.co.jp/eco/thin/lineup.html"},
+
+/* ===== 東芝（出典: 公式システム仕様書 toshiba-carrier.co.jp） ===== */
+{maker:"東芝",system:"HWH-B376-R",region:"一般地",tank:"HWH-B376T-R",remote:"HWH-RM96F + HWH-RB96F",legcover:"HWH-LC610",heatpump:"HWH-456U-R",conf:"high",note:"ESTIA フルオート ベーシック370L 角型",src:"https://www.toshiba-carrier.co.jp/products/small/eco/lineup/pdf/HWH-B376-R.pdf"},
+{maker:"東芝",system:"HWH-B466-R",region:"一般地",tank:"HWH-B466T-R",remote:"HWH-RM96F + HWH-RB96F",legcover:"HWH-LC610",heatpump:"HWH-606U-R",conf:"high",note:"ESTIA フルオート ベーシック460L 角型",src:"https://www.toshiba-carrier.co.jp/products/small/eco/lineup/pdf/HWH-B466-R.pdf"},
+{maker:"東芝",system:"HWH-B376H-R",region:"一般地",tank:"HWH-B376HT-R",remote:"HWH-RM96F + HWH-RB96F",legcover:"HWH-LC610",heatpump:"HWH-456U-R",conf:"high",note:"ESTIA フルオート スタンダード(高圧)370L 角型",src:"https://www.toshiba-carrier.co.jp/products/small/eco/lineup/pdf/HWH-B376H-R.pdf"},
+{maker:"東芝",system:"HWH-B466H",region:"一般地",tank:"HWH-B466HT",remote:"HWH-RM96F + HWH-RB96F",legcover:"HWH-LC610",heatpump:"HWH-606U",conf:"high",note:"ESTIA フルオート スタンダード(高圧)460L 角型",src:"https://www.toshiba-carrier.co.jp/products/small/eco/lineup/pdf/b466h.pdf"},
+{maker:"東芝",system:"HWH-B376HA-R",region:"一般地",tank:"HWH-B376HAT-R",remote:"HWH-RM96F + HWH-RB96F",legcover:"HWH-LC610",heatpump:"HWH-456U-R",conf:"high",note:"ESTIA スタンダード 銀イオンの湯対応370L 角型",src:"https://www.toshiba-carrier.co.jp/products/small/eco/lineup/pdf/HWH-B376HA-R.pdf"},
+{maker:"東芝",system:"HWH-B466HA-R",region:"一般地",tank:"HWH-B466HAT-R",remote:"HWH-RM96F + HWH-RB96F",legcover:"HWH-LC610",heatpump:"HWH-606U-R",conf:"high",note:"ESTIA スタンダード 銀イオンの湯対応460L 角型",src:"https://www.toshiba-carrier.co.jp/products/small/eco/lineup/pdf/HWH-B466HA-R.pdf"},
+{maker:"東芝",system:"HWH-B376HW-R",region:"一般地",tank:"HWH-B376HWT-R",remote:"HWH-RM96F + HWH-RB96F",legcover:"HWH-LC911",heatpump:"HWH-456U-R",conf:"high",note:"ESTIA 薄型(スリム)タンク370L。薄型用脚部カバー",src:"https://www.toshiba-carrier.co.jp/products/small/eco/lineup/pdf/HWH-B376HW-R.pdf"},
+];
+
+/* ===== ここから下は仕組み（基本さわらなくてOK） ===== */
+const $ = (s)=>document.querySelector(s);
+let activeMaker = "すべて";
+const CONF_LABEL = {high:"公式確認", medium:"要確認", low:"未確認"};
+
+function escapeHtml(s){return (s||"").replace(/[&<>"']/g,c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));}
+function highlight(text,q){
+  const safe=escapeHtml(text||"");
+  if(!q||!text) return safe;
+  const i=text.toLowerCase().indexOf(q.toLowerCase());
+  if(i<0) return safe;
+  return escapeHtml(text.slice(0,i))+"<mark>"+escapeHtml(text.slice(i,i+q.length))+"</mark>"+escapeHtml(text.slice(i+q.length));
+}
+function buildFilters(){
+  const makers=["すべて",...Array.from(new Set(PARTS_DATA.map(d=>d.maker))).filter(Boolean)];
+  const box=$("#filters");box.innerHTML="";
+  makers.forEach(m=>{
+    const el=document.createElement("div");
+    el.className="chip"+(m===activeMaker?" active":"");
+    el.textContent=m;
+    el.onclick=()=>{activeMaker=m;buildFilters();render();};
+    box.appendChild(el);
+  });
+}
+function partRow(cls,label,value,q){
+  const has=value&&value.trim();
+  return `<div class="part">
+    <span class="label ${cls}">${label}</span>
+    <span class="pn ${has?"":"empty"}">${has?highlight(value,q):"未登録"}</span>
+    ${has?`<button class="copy" data-copy="${escapeHtml(value)}">コピー</button>`:""}
+  </div>`;
+}
+function render(){
+  const q=$("#q").value.trim();const ql=q.toLowerCase();
+  let list=PARTS_DATA.filter(d=>{
+    if(activeMaker!=="すべて"&&d.maker!==activeMaker) return false;
+    if(!q) return true;
+    return [d.tank,d.system,d.remote,d.legcover,d.heatpump,d.maker].some(v=>(v||"").toLowerCase().includes(ql));
+  });
+  $("#count").textContent=`${list.length} 件 / 全 ${PARTS_DATA.length} 件`;
+  const results=$("#results");
+  if(list.length===0){
+    results.innerHTML=`<div class="empty-state"><div class="big">🔍</div>該当する品番が見つかりませんでした。<br>入力を確認するか、メーカー絞り込みを「すべて」にしてください。</div>`;
+    return;
+  }
+  results.innerHTML=list.map(d=>`
+    <div class="card">
+      <div class="card-head">
+        <div class="tank"><span class="tlabel">貯湯ユニット品番</span>${highlight(d.tank,q)}</div>
+        <div class="maker">${escapeHtml(d.maker||"")}</div>
+      </div>
+      <div class="meta">
+        <span class="tag">形名 ${highlight(d.system,q)}</span>
+        ${d.region?`<span class="tag">${escapeHtml(d.region)}</span>`:""}
+        <span class="conf ${d.conf}">${CONF_LABEL[d.conf]||""}</span>
+      </div>
+      ${partRow("l1","① リモコン",d.remote,q)}
+      ${partRow("l2","② 脚部カバー",d.legcover,q)}
+      ${partRow("l3","③ ヒートポンプ",d.heatpump,q)}
+      ${d.note?`<div class="note">📝 ${escapeHtml(d.note)}</div>`:""}
+      ${d.src?`<a class="src" href="${escapeHtml(d.src)}" target="_blank" rel="noopener">🔗 出典を確認</a>`:""}
+    </div>`).join("");
+  results.querySelectorAll(".copy").forEach(btn=>{
+    btn.onclick=()=>{
+      const v=btn.getAttribute("data-copy");
+      navigator.clipboard?.writeText(v).then(()=>{const t=btn.textContent;btn.textContent="コピー済";setTimeout(()=>btn.textContent=t,1200);});
+    };
+  });
+}
+$("#q").addEventListener("input",render);
+$("#updated").textContent=LAST_UPDATED;
+$("#total").textContent=PARTS_DATA.length;
+buildFilters();
+render();
+</script>
+</body>
+</html>
