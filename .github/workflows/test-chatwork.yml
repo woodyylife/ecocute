@@ -1,0 +1,19 @@
+name: チャットワーク通知テスト
+
+on:
+  workflow_dispatch: {}   # 手動実行専用
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: テストメッセージを送信
+        env:
+          CHATWORK_TOKEN: ${{ secrets.CHATWORK_TOKEN }}
+          CHATWORK_ROOM: ${{ secrets.CHATWORK_ROOM }}
+        run: |
+          curl -sS -X POST \
+            -H "X-ChatWorkToken: ${CHATWORK_TOKEN}" \
+            --data-urlencode "body=✅ テスト通知：エコキュート新商品チェックの連携テストです。これが届けば設定は成功です。" \
+            -w "\nHTTP %{http_code}\n" \
+            "https://api.chatwork.com/v2/rooms/${CHATWORK_ROOM}/messages"
