@@ -1,0 +1,53 @@
+name: （一時）下書きPRの動作テスト
+
+# 手動実行専用。ChatWork通知は通さず、Gemini抽出→PR作成だけを検証する。
+# 確認が済んだらこのファイルは削除する。
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: テスト用の新形名を仕込む（ダイキン・実在の未登録形名）
+        run: |
+          cat > new-models.json <<'JSON'
+          {"ダイキン":["EQA46ZFV","EQA37ZFV"]}
+          JSON
+
+      - name: Geminiで品番を抽出して下書きを生成
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: node scripts/draft-parts-pr.mjs
+
+      - name: 下書きをプルリクエストとして作成
+        if: ${{ hashFiles('pr-ready') != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          BRANCH="test/draft-pr-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH"
+          git add index.html
+          git commit -m "test: 下書きPRの動作確認（ダイキン）"
+          git push -u origin "$BRANCH"
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "🧪 動作テスト: 下書きPR自動生成（ダイキン・要確認）" \
+            --body-file pr-body.txt
+
+      - name: PRが作られなかった場合のログ
+        if: ${{ hashFiles('pr-ready') == '' }}
+        run: echo "PRは作成されませんでした（抽出結果が空）。上のステップのログを確認してください。"
