@@ -1,0 +1,6 @@
+# ワークフロー実行時に生成される一時ファイル（コミット不要）
+new-models.json
+notify-subject.txt
+notify-message.txt
+pr-body.txt
+pr-ready

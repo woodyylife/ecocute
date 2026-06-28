@@ -10,63 +10,9 @@
 // 依存パッケージなし（Node.js 20 の標準 fetch を使用）。
 
 import fs from 'node:fs';
+import { MAKERS } from './makers.mjs';
 
 const SEEN_PATH = 'seen-models.json';
-
-// 監視対象：メーカーごとに「品番の形」と「巡回するURL」を定義
-const MAKERS = [
-  {
-    name: '三菱電機',
-    re: /SRT-[A-Z0-9]+(?:-[A-Z0-9]+)*/g,
-    urls: [
-      'https://www.mitsubishielectric.co.jp/home/ecocute/product/',
-      'https://www.mitsubishielectric.co.jp/home/ecocute/product/s/index.html',
-    ],
-  },
-  {
-    name: 'パナソニック',
-    re: /HE-[A-Z0-9]+(?:-[A-Z0-9]+)*/g,
-    urls: [
-      'https://sumai.panasonic.jp/hp/lineup/',
-    ],
-  },
-  {
-    name: 'ダイキン',
-    re: /EQ[A-Z0-9]+(?:-[A-Z0-9]+)*/g,
-    urls: [
-      'https://www.ac.daikin.co.jp/sumai/alldenka/ecocute/lineup/fullauto/01',
-      'https://www.ac.daikin.co.jp/sumai/alldenka/ecocute/lineup/fullauto/02',
-      'https://www.ac.daikin.co.jp/sumai/alldenka/ecocute/lineup/auto/01',
-      'https://www.ac.daikin.co.jp/sumai/alldenka/ecocute/lineup/raku/01',
-    ],
-  },
-  {
-    name: '日立',
-    re: /BHP-[A-Z0-9]+(?:-[A-Z0-9]+)*/g,
-    urls: [
-      'https://kadenfan.hitachi.co.jp/kyutou/lineup/f-xd/',
-      'https://kadenfan.hitachi.co.jp/kyutou/lineup/fv-xd/',
-      'https://kadenfan.hitachi.co.jp/kyutou/lineup/fw-xd/',
-      'https://kadenfan.hitachi.co.jp/kyutou/lineup/f-xdk/',
-    ],
-  },
-  {
-    name: 'コロナ',
-    re: /CHP-[A-Z0-9]+(?:-[A-Z0-9]+)*/g,
-    urls: [
-      'https://www.corona.co.jp/eco/highgrade/lineup.html',
-      'https://www.corona.co.jp/eco/slim/lineup.html',
-      'https://www.corona.co.jp/eco/thin/lineup.html',
-    ],
-  },
-  {
-    name: '東芝',
-    re: /HWH-[A-Z0-9]+(?:-[A-Z0-9]+)*/g,
-    urls: [
-      'https://www.toshiba-carrier.co.jp/products/small/eco/lineup/',
-    ],
-  },
-];
 
 const seen = new Set(JSON.parse(fs.readFileSync(SEEN_PATH, 'utf8')));
 const found = {}; // メーカー名 -> [新トークン]
@@ -95,6 +41,10 @@ if (newAll.length === 0) {
   console.log('新形名は見つかりませんでした。');
   process.exit(0);
 }
+
+// 検知した新形名（メーカー→トークン）を書き出す。
+// 自動ドラフトPR生成スクリプト(draft-parts-pr.mjs)がこれを読んで品番を抽出する。
+fs.writeFileSync('new-models.json', JSON.stringify(found, null, 2));
 
 // --- 通知本文を組み立て ---
 // メーカーごとの一覧（プレーン）

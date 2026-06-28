@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write          # 検知済みリスト(seen-models.json)を更新・保存するため
+  pull-requests: write     # 新形名の下書きをプルリクエストとして自動作成するため
 
 jobs:
   check:
@@ -61,3 +62,32 @@ jobs:
           git add seen-models.json
           git diff --staged --quiet || git commit -m "chore: 新形名を検知済みリストに追加"
           git push
+
+      # ▼▼ 新形名の「下書き」を自動でプルリクエスト化（Gemini＝無料枠のAI使用）▼▼
+      # Gemini API は Google AI Studio の無料枠で利用するため、料金は発生しません。
+      # 必要な準備（一度だけ）:
+      #   1) Secret  GEMINI_API_KEY を登録（https://aistudio.google.com で無料発行）
+      #   2) Settings → Actions → General → Workflow permissions で
+      #      「Allow GitHub Actions to create and approve pull requests」をON
+      # GEMINI_API_KEY 未登録なら下記スクリプトは何もせず終了し、通知のみの従来動作になります。
+      - name: 公式ページから品番を抽出して下書きを生成（Gemini・無料）
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: node scripts/draft-parts-pr.mjs
+
+      - name: 下書きをプルリクエストとして作成
+        if: ${{ hashFiles('pr-ready') != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="auto/new-models-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH"
+          git add index.html
+          git commit -m "新形名の下書きを自動追記（要確認）"
+          git push -u origin "$BRANCH"
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "🆕 エコキュート新形名の下書き（要確認・自動生成）" \
+            --body-file pr-body.txt
+      # ▲▲ 自動プルリクエストここまで ▲▲
