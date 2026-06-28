@@ -1,9 +1,14 @@
 // エコキュート 新形名の「下書き」自動生成スクリプト
 //
 // check-new-models.mjs が書き出した new-models.json（新形名の一覧）を読み、
-// 各メーカー公式ページのテキストを Claude API（構造化出力）に渡して、
+// 各メーカー公式ページのテキストを Google Gemini（無料枠）に渡して、
 // PARTS_DATA に追記する1行ぶんの項目を抽出する。抽出結果を index.html の
 // PARTS_DATA 先頭に追記し、LAST_UPDATED を当日に更新する。
+//
+// Gemini API（Google AI Studio の無料APIキーで利用。週1・少量なら無料枠内）:
+//   - エンドポイント: https://generativelanguage.googleapis.com/v1beta/models/<model>:generateContent
+//   - 認証: ヘッダ x-goog-api-key: <GEMINI_API_KEY>
+//   - JSON出力: generationConfig.responseMimeType = "application/json"
 //
 // 出力（ワークフロー側が利用）：
 //   - index.html を書き換え（差分があればPRにする）
@@ -18,14 +23,15 @@
 import fs from 'node:fs';
 import { MAKERS } from './makers.mjs';
 
-const API_KEY = process.env.ANTHROPIC_API_KEY;
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-opus-4-8';
+const API_KEY = process.env.GEMINI_API_KEY;
+const MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 const INDEX_PATH = 'index.html';
 const NEW_MODELS_PATH = 'new-models.json';
-const MAX_TEXT = 80000; // メーカー1社あたりに渡すテキストの上限（コスト抑制）
+const MAX_TEXT = 60000; // メーカー1社あたりに渡すテキストの上限（文字数）
 
 if (!API_KEY) {
-  console.log('ANTHROPIC_API_KEY が未設定のため、自動ドラフトPRはスキップします。');
+  console.log('GEMINI_API_KEY が未設定のため、自動ドラフトPRはスキップします。');
   process.exit(0);
 }
 if (!fs.existsSync(NEW_MODELS_PATH)) {
@@ -56,76 +62,57 @@ function htmlToText(html) {
     .slice(0, MAX_TEXT);
 }
 
-// --- Claude API（構造化出力）で1メーカーぶんの行を抽出 ---
-const ROW_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['rows'],
-  properties: {
-    rows: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['system', 'region', 'tank', 'remote', 'legcover', 'heatpump', 'conf', 'note', 'src'],
-        properties: {
-          system: { type: 'string', description: 'システム形名（検索キー。new-models.jsonのトークン）' },
-          region: { type: 'string', description: '設置地域。例: 一般地 / 寒冷地 / 耐塩害' },
-          tank: { type: 'string', description: '貯湯ユニット品番。不明なら""' },
-          remote: { type: 'string', description: 'リモコン品番。不明なら""' },
-          legcover: { type: 'string', description: '脚部カバー品番。不明なら""' },
-          heatpump: { type: 'string', description: 'ヒートポンプ品番。不明なら""' },
-          conf: { type: 'string', enum: ['high', 'medium', 'low'], description: 'high=公式に明記 / medium=命名規則等から推定 / low=不明' },
-          note: { type: 'string', description: 'シリーズ名・容量などの備考' },
-          src: { type: 'string', description: '参照した公式URL' },
-        },
-      },
-    },
-  },
-};
+// --- Gemini（JSON出力）で1メーカーぶんの行を抽出 ---
+const SYSTEM_INSTRUCTION =
+  'あなたは住宅設備会社の部品データ整理担当です。指定された形のJSONだけを出力します。' +
+  '推測で品番をでっち上げず、読み取れない品番は空文字にします。';
 
 async function extractRows(maker, tokens, pageText) {
+  const srcUrls = MAKERS.find((m) => m.name === maker)?.urls.join(' , ') || '';
   const prompt =
-    `あなたは住宅設備会社の部品データ整理担当です。\n` +
     `以下はエコキュートメーカー「${maker}」の公式ラインアップページから抽出したテキストです。\n\n` +
     `次の「システム形名の候補」について、各部品の品番を抽出してください。\n` +
     `候補: ${tokens.join(', ')}\n\n` +
+    `出力は次の形のJSONのみ（前後に説明文やマークダウンを付けない）:\n` +
+    `{"rows":[{"system":"...","region":"...","tank":"...","remote":"...","legcover":"...","heatpump":"...","conf":"high|medium|low","note":"...","src":"..."}]}\n\n` +
+    `各フィールドの意味:\n` +
+    `- system: システム形名（検索キー。候補のトークン）\n` +
+    `- region: 設置地域（例: 一般地 / 寒冷地 / 耐塩害）\n` +
+    `- tank: 貯湯ユニット品番 / remote: リモコン品番 / legcover: 脚部カバー品番 / heatpump: ヒートポンプ品番\n` +
+    `- conf: 公式に明記=high、命名規則などからの推定=medium、不明が多い=low\n` +
+    `- src: 参照した公式URL（次のいずれか）: ${srcUrls}\n\n` +
     `ルール:\n` +
-    `- 候補のうち、実際に販売されているエコキュートの「システム形名（貯湯ユニット＋ヒートポンプのセット商品の形名）」だけを rows に含める。\n` +
-    `- リモコン単体・脚部カバー単体・部材コードなど、システム形名でないものは rows に含めない（除外）。\n` +
-    `- 各部品(tank/remote/legcover/heatpump)は、ページから確実に読み取れた場合のみ品番を入れる。読み取れない場合は空文字 "" にする。\n` +
-    `- conf は、公式に明記されていれば high、命名規則などからの推定なら medium、不明が多ければ low。\n` +
-    `- src は参照した公式URL（次のいずれか）: ${MAKERS.find((m) => m.name === maker)?.urls.join(' , ')}\n` +
+    `- 候補のうち、実際に販売されているエコキュートの「システム形名（貯湯ユニット＋ヒートポンプのセット商品）」だけを rows に含める。\n` +
+    `- リモコン単体・脚部カバー単体・部材コードなど、システム形名でないものは除外する。\n` +
+    `- 各部品は、ページから確実に読み取れた場合のみ品番を入れる。読み取れない場合は空文字 "" にする。\n` +
     `- 推測で品番をでっち上げない。不明は "" のままにする。\n\n` +
     `--- 公式ページのテキスト ---\n${pageText}`;
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const res = await fetch(ENDPOINT, {
     method: 'POST',
     headers: {
-      'x-api-key': API_KEY,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
+      'x-goog-api-key': API_KEY,
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 8000,
-      messages: [{ role: 'user', content: prompt }],
-      output_config: { format: { type: 'json_schema', schema: ROW_SCHEMA } },
+      systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: 'application/json', temperature: 0 },
     }),
   });
 
   if (!res.ok) {
-    console.error(`Claude API NG (${maker}):`, res.status, await res.text());
+    console.error(`Gemini NG (${maker}):`, res.status, await res.text());
     return [];
   }
   const data = await res.json();
-  const textBlock = (data.content || []).find((b) => b.type === 'text');
-  if (!textBlock) {
-    console.error(`Claude応答にテキストなし (${maker})`);
+  const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!content) {
+    console.error(`応答にテキストなし (${maker}):`, JSON.stringify(data).slice(0, 300));
     return [];
   }
   try {
-    const parsed = JSON.parse(textBlock.text);
+    const parsed = JSON.parse(content);
     return Array.isArray(parsed.rows) ? parsed.rows : [];
   } catch (e) {
     console.error(`JSON解析失敗 (${maker}):`, e.message);
